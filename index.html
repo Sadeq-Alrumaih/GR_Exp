@@ -13,13 +13,15 @@
   --accent:#0d6b5c; --accent-ink:#ffffff;
   --warn-bg:#fdecc8; --warn-ink:#6b4200; --crit-bg:#fbdcd6; --crit-ink:#7a1f10;
   --ok-bg:#d8efe8; --ok-ink:#0b4a3f; --done-bg:#e6e9e8; --done-ink:#55625e;
+  --org-bg:#fedcc0; --org-ink:#8a3300;
   --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#0f1815; --surface:#17231f; --ink:#e6efec; --muted:#93a39e; --line:#2a3a35;
   --accent:#4fc4ae; --accent-ink:#06211b;
   --warn-bg:#4a3708; --warn-ink:#f6d68a; --crit-bg:#55221a; --crit-ink:#ffc2b6;
-  --ok-bg:#14382f; --ok-ink:#9fe3d3; --done-bg:#22302c; --done-ink:#93a39e;}}
+  --ok-bg:#14382f; --ok-ink:#9fe3d3; --done-bg:#22302c; --done-ink:#93a39e;
+  --org-bg:#5a2c0a; --org-ink:#ffc999;}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);padding-inline:16px;padding-block:28px 56px;margin:0}
@@ -51,6 +53,7 @@ td.num{text-align:right}
 .cmt{color:var(--muted);font-size:.85rem;max-width:26ch;overflow-wrap:anywhere}
 .pill{display:inline-block;font-size:.75rem;font-weight:600;border-radius:99px;padding:2px 10px;white-space:nowrap}
 .p-ok{background:var(--ok-bg);color:var(--ok-ink)}.p-warn{background:var(--warn-bg);color:var(--warn-ink)}
+.p-org{background:var(--org-bg);color:var(--org-ink)}
 .p-crit{background:var(--crit-bg);color:var(--crit-ink)}.p-done{background:var(--done-bg);color:var(--done-ink)}
 .row-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row-actions button{padding:4px 9px;font-size:.8rem}
@@ -264,7 +267,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(c1);
       tr.appendChild(el('td','',it.account||'—'));
       tr.appendChild(el('td','',it.billing==='yearly'?'Yearly':'Monthly'));
-      tr.appendChild(el('td','',it.autoRenew?'True':'False'));
+      var car=el('td');car.appendChild(el('span','pill '+(it.autoRenew?'p-org':'p-ok'),it.autoRenew?'True':'False'));tr.appendChild(car);
       tr.appendChild(el('td','date',fmtDate(it.start)));
       tr.appendChild(el('td','date',fmtDate(it.end)));
       tr.appendChild(el('td','num',fmt(it.amount)));
