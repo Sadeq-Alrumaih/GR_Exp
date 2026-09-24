@@ -352,7 +352,11 @@ dialog dd a{color:var(--accent)}
   $('t-ledger').onclick=function(){showTab(false)};
 
   /* ---------- Google sign-in ---------- */
-  function showGate(msg){$('app').hidden=true;$('gate').hidden=false;$('gate-err').textContent=msg||'';items=[];pays=[];}
+  /* Token kept in sessionStorage only: survives a refresh in this tab, gone when the tab closes, expires with Google's token. */
+  function saveTok(t,secs){try{sessionStorage.setItem('gr_tok',JSON.stringify({t:t,e:Date.now()+((secs||3600)-60)*1000}))}catch(e){}}
+  function restoreTok(){try{var o=JSON.parse(sessionStorage.getItem('gr_tok')||'null');if(o&&typeof o.t==='string'&&o.e>Date.now())return o.t}catch(e){}return null}
+  function clearTok(){try{sessionStorage.removeItem('gr_tok')}catch(e){}}
+  function showGate(msg){clearTok();$('app').hidden=true;$('gate').hidden=false;$('gate-err').textContent=msg||'';items=[];pays=[];}
   function initAuth(){
     if(!CFG.CLIENT_ID||!CFG.SHEET_ID||/YOUR_/.test(CFG.CLIENT_ID+CFG.SHEET_ID)){
       $('gate-err').textContent='Setup incomplete: add your CLIENT_ID and SHEET_ID to config.js.';return}
@@ -361,7 +365,7 @@ dialog dd a{color:var(--accent)}
       scope:'https://www.googleapis.com/auth/spreadsheets',
       callback:function(resp){
         if(resp.error){showGate('Sign-in was cancelled or refused.');return}
-        token=resp.access_token;
+        token=resp.access_token;saveTok(token,Number(resp.expires_in));
         load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).catch(function(e){if(e.message!=='auth')showGate(e.message)});
       }
     });
@@ -373,6 +377,12 @@ dialog dd a{color:var(--accent)}
     showGate('Signed out.');
   };
   window.addEventListener('load',function(){
+    var saved=restoreTok();
+    if(saved){
+      token=saved;
+      load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false})
+        .catch(function(e){if(e.message!=='auth')showGate(e.message)});
+    }
     var n=0,iv=setInterval(function(){
       if(window.google&&google.accounts){clearInterval(iv);initAuth()}
       else if(++n>50){clearInterval(iv);$('gate-err').textContent='Could not load Google sign-in. Check your connection.'}
