@@ -159,7 +159,7 @@ dialog dd a{color:var(--accent)}
     </form>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Renewal</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
+        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Auto renew</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty" hidden>No entries yet. Add the first service above.</div>
@@ -230,7 +230,7 @@ dialog dd a{color:var(--accent)}
       render();renderPays();
     });
   }
-  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'yes':'no']}
+  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'TRUE':'FALSE']}
 
   /* ---------- Services tab ---------- */
   function status(it){
@@ -253,7 +253,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(c1);
       tr.appendChild(el('td','',it.account||'—'));
       tr.appendChild(el('td','',it.billing==='yearly'?'Yearly':'Monthly'));
-      tr.appendChild(el('td','',it.autoRenew?'Auto-renews':'Ends'));
+      tr.appendChild(el('td','',it.autoRenew?'True':'False'));
       tr.appendChild(el('td','date',fmtDate(it.start)));
       tr.appendChild(el('td','date',fmtDate(it.end)));
       tr.appendChild(el('td','num',fmt(it.amount)));
@@ -295,7 +295,7 @@ dialog dd a{color:var(--accent)}
     var u=safeUrl(it.url);
     var rows=[
       ['Service',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
-      ['Renewal',it.autoRenew?'Auto-renews':'Ends on the end date'],['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
+      ['Auto renew',it.autoRenew?'True':'False'],['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
       ['Start',fmtDate(it.start)],['End',fmtDate(it.end)],['Status',st[0]],
       ['URL',u||'—'],['Comment',it.comment||'—']
     ];
