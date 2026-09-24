@@ -218,14 +218,14 @@ dialog dd a{color:var(--accent)}
     return api('/values/'+encodeURIComponent('Services!Z1000')+':clear',{method:'POST',body:{}}).catch(function(){});
   }
   function load(){
-    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:J&ranges=Payments!A2:E').then(function(res){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:K&ranges=Payments!A2:E').then(function(res){
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
-      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly'})});
+      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||''})});
       pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
       render();renderPays();
     });
   }
-  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly']}
+  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'']}
 
   /* ---------- Services tab ---------- */
   function status(it){
@@ -257,15 +257,15 @@ dialog dd a{color:var(--accent)}
       var c7=el('td'),ra=el('div','row-actions'),mv=el('label','chk'),cb=document.createElement('input');
       cb.type='checkbox';cb.checked=it.moved;
       cb.onchange=function(){
-        var prev=it.moved;it.moved=cb.checked;
-        api('/values/'+encodeURIComponent('Services!A'+it.row+':J'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
-          .then(render).catch(function(e){it.moved=prev;cb.checked=prev;$('err').textContent=e.message});
+        var prev=it.moved,prevOn=it.movedOn;it.moved=cb.checked;it.movedOn=cb.checked?isoToday():'';
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':K'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+          .then(function(){render();renderPays()}).catch(function(e){it.moved=prev;it.movedOn=prevOn;cb.checked=prev;$('err').textContent=e.message});
       };
       mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
       var del=el('button','','Delete');del.type='button';
       del.onclick=function(){
         if(del.dataset.armed){
-          api('/values/'+encodeURIComponent('Services!A'+it.row+':J'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
+          api('/values/'+encodeURIComponent('Services!A'+it.row+':K'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
         }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
       };
       ra.appendChild(mv);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
@@ -300,39 +300,68 @@ dialog dd a{color:var(--accent)}
     var s=$('start').value,e=$('end').value;
     if(e<s){err.textContent='End date is before the start date.';return}
     var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value};
-    api('/values/Services!A:J:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
+    api('/values/Services!A:K:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
       .then(function(){$('f').reset();return load()}).catch(function(e){err.textContent=e.message});
   });
 
   /* ---------- Money tab ---------- */
+  /* Automatic charges: every service on Khaled's account charges its amount on each billing date
+     from the start date, before the end date, up to today and up to the day it was moved. */
+  function isoDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  function addMonths(s,k){
+    var d=parse(s),day=d.getDate(),t=new Date(d.getFullYear(),d.getMonth()+k,1);
+    var last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+    t.setDate(Math.min(day,last));return t;
+  }
+  function autoCharges(){
+    var out=[],now=isoToday();
+    items.forEach(function(it){
+      if(it.account!=='Khaled IBAN'||!it.start||!it.end||!(it.amount>0))return;
+      var cutoff=it.moved?(it.movedOn||''):'9999-12-31';
+      var step=it.billing==='yearly'?12:1;
+      for(var n=0;n<600;n++){
+        var d=isoDate(addMonths(it.start,n*step));
+        if(d>=it.end||d>now||d>cutoff)break;
+        out.push({date:d,amount:it.amount,note:it.service});
+      }
+    });
+    return out;
+  }
   function renderPays(){
     var prows=$('prows');prows.replaceChildren();
-    var sorted=pays.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
-    $('pempty').hidden=sorted.length>0;
-    var paid=0,sent=0;
-    sorted.forEach(function(p){
-      var isPaid=p.kind==='paid';
-      if(isPaid)paid+=p.amount;else sent+=p.amount;
+    var autos=autoCharges();
+    var all=pays.map(function(p){return {date:p.date,kind:p.kind,amount:p.amount,note:p.note,manual:p}})
+      .concat(autos.map(function(a){return {date:a.date,kind:'auto',amount:a.amount,note:a.note}}));
+    all.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
+    $('pempty').hidden=all.length>0;
+    var auto=0,paid=0,sent=0;
+    all.forEach(function(p){
+      var isSent=p.kind==='sent';
+      if(p.kind==='auto')auto+=p.amount;else if(isSent)sent+=p.amount;else paid+=p.amount;
       var tr=el('tr');
       tr.appendChild(el('td','date',fmtDate(p.date)));
-      var k=el('td');k.appendChild(el('span','kind '+(isPaid?'i-owe':'owe-me'),isPaid?'He paid for me':'I sent him'));tr.appendChild(k);
-      tr.appendChild(el('td','num '+(isPaid?'plus':'minus'),(isPaid?'+':'−')+fmt(p.amount)));
+      var k=el('td');k.appendChild(el('span','kind '+(isSent?'owe-me':'i-owe'),isSent?'I sent him':(p.kind==='auto'?'Charged to Khaled (auto)':'He paid for me')));tr.appendChild(k);
+      tr.appendChild(el('td','num '+(isSent?'minus':'plus'),(isSent?'−':'+')+fmt(p.amount)));
       tr.appendChild(el('td','cmt',p.note));
-      var c=el('td'),del=el('button','','Delete');del.type='button';del.style.cssText='padding:4px 9px;font-size:.8rem';
-      del.onclick=function(){
-        if(del.dataset.armed){
-          api('/values/'+encodeURIComponent('Payments!A'+p.row+':E'+p.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('perr').textContent=e.message});
-        }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
-      };
-      c.appendChild(del);tr.appendChild(c);prows.appendChild(tr);
+      var c=el('td');
+      if(p.manual){
+        var ra=el('div','row-actions'),del=el('button','','Delete');del.type='button';
+        del.onclick=function(){
+          if(del.dataset.armed){
+            api('/values/'+encodeURIComponent('Payments!A'+p.manual.row+':E'+p.manual.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('perr').textContent=e.message});
+          }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
+        };
+        ra.appendChild(del);c.appendChild(ra);
+      }
+      tr.appendChild(c);prows.appendChild(tr);
     });
-    var net=Math.round((paid-sent)*100)/100,who=$('bal-who'),amt=$('bal-amt');
+    var net=Math.round((auto+paid-sent)*100)/100,who=$('bal-who'),amt=$('bal-amt');
     if(net>0){who.textContent='I owe him';amt.className='big i-owe'}
     else if(net<0){who.textContent='He owes me';amt.className='big owe-me'}
     else{who.textContent='Settled up';amt.className='big'}
     amt.textContent=fmt(Math.abs(net))+' EUR';
     var b=$('bal-break');b.replaceChildren();
-    [['He paid for me',fmt(paid)],['I sent him',fmt(sent)]].forEach(function(x){var s=el('span','',x[0]+': ');s.appendChild(el('strong','',x[1]));b.appendChild(s)});
+    [['Charged to Khaled (auto)',fmt(auto)],['Other paid for me',fmt(paid)],['I sent him',fmt(sent)]].forEach(function(x){var s=el('span','',x[0]+': ');s.appendChild(el('strong','',x[1]));b.appendChild(s)});
   }
   $('pf').addEventListener('submit',function(ev){
     ev.preventDefault();var pe=$('perr');pe.textContent='';
