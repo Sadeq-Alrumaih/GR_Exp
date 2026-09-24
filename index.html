@@ -278,8 +278,8 @@ dialog dd a{color:var(--accent)}
           api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
         }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
       };
-      ra.appendChild(mv);ra.appendChild(ar);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
-      if(!st[2]){open++;total+=it.billing==='yearly'?it.amount/12:it.amount;if(daysLeft(it.end)<=30)soon++}
+      if(it.account==='Khaled IBAN')ra.appendChild(mv);ra.appendChild(ar);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
+      if(!st[2]){if(it.account==='Khaled IBAN')open++;total+=it.billing==='yearly'?it.amount/12:it.amount;if(daysLeft(it.end)<=30)soon++}
     });
     var sm=$('summary');sm.replaceChildren();
     [['Still on borrowed IBAN',open],['Per month (EUR)',fmt(total)],['Ending within 30 days',soon]].forEach(function(p){
