@@ -1,4 +1,4 @@
-# GR_Exp: IBAN Ledger
+# GR_Exp: Sadeq GR Exp
 
 A static page that tracks services billed to a borrowed IBAN and the money owed between two people.
 The page holds no data. Everything lives in a Google Sheet, and Google sign-in decides who can read it.
@@ -10,7 +10,7 @@ Page address (GitHub Pages): https://sadeq-alrumaih.github.io/GR_Exp/
 - The sheet's sharing must be **Restricted**: only the two people, by email. Never "Anyone with the link".
 
 ## 1. Create the sheet
-1. New Google Sheet, name it `IBAN Ledger`.
+1. New Google Sheet, name it `Sadeq GR Exp`.
 2. Rename the first tab to `Services`, add a second tab named `Payments` (exact names).
 3. Paste the header rows from `sheet-templates/`:
    - Services: `id, service, start, end, url, amount, comment, moved`
@@ -21,7 +21,7 @@ Page address (GitHub Pages): https://sadeq-alrumaih.github.io/GR_Exp/
 ## 2. Google Cloud OAuth client
 1. console.cloud.google.com > new project (e.g. `gr-exp`).
 2. APIs & Services > Library > enable **Google Sheets API**.
-3. OAuth consent screen: External, app name `IBAN Ledger`. Add both emails as **Test users**. Leave it in Testing.
+3. OAuth consent screen: External, app name `Sadeq GR Exp`. Add both emails as **Test users**. Leave it in Testing.
 4. Credentials > Create credentials > OAuth client ID > **Web application**.
    - Authorized JavaScript origins: `https://sadeq-alrumaih.github.io` (no path, no trailing slash).
 5. Copy the client ID.
