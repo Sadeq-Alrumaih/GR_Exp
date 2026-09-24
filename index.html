@@ -72,6 +72,13 @@ td.plus{color:var(--crit-ink)}td.minus{color:var(--ok-ink)}
 .gate{max-width:440px;margin:12vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:28px}
 .gate h1{margin-bottom:8px}
 body.ro form,body.ro .row-actions{display:none!important}
+dialog{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:22px;width:min(480px,calc(100vw - 32px));max-height:85vh;overflow:auto}
+dialog::backdrop{background:rgba(10,20,17,.55)}
+dialog h2{margin:0 0 14px;font-size:1.15rem}
+dialog dl{display:grid;grid-template-columns:110px 1fr;gap:8px 14px;margin:0 0 18px}
+dialog dt{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+dialog dd{margin:0;overflow-wrap:anywhere}
+dialog dd a{color:var(--accent)}
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
 .who-me{font-size:.85rem;color:var(--muted)}
 .foot{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
@@ -149,7 +156,7 @@ body.ro form,body.ro .row-actions{display:none!important}
     </form>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th>Comment</th><th></th></tr></thead>
+        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty" hidden>No entries yet. Add the first service above.</div>
@@ -157,6 +164,12 @@ body.ro form,body.ro .row-actions{display:none!important}
   </section>
 </div>
 </main>
+
+<dialog id="dl" aria-label="Service details">
+  <h2>Service details</h2>
+  <dl id="dl-body"></dl>
+  <button id="dl-close" type="button" class="primary">Close</button>
+</dialog>
 
 <script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -238,7 +251,9 @@ body.ro form,body.ro .row-actions{display:none!important}
       tr.appendChild(el('td','date',fmtDate(it.end)));
       tr.appendChild(el('td','num',fmt(it.amount)));
       var c5=el('td');c5.appendChild(el('span','pill '+st[1],st[0]));tr.appendChild(c5);
-      tr.appendChild(el('td','cmt',it.comment));
+      var cd=el('td'),dbtn=el('button','','Details');dbtn.type='button';dbtn.style.cssText='padding:4px 9px;font-size:.8rem';
+      dbtn.onclick=function(){showDetails(it,st)};
+      cd.appendChild(dbtn);tr.appendChild(cd);
       var c7=el('td'),ra=el('div','row-actions'),mv=el('label','chk'),cb=document.createElement('input');
       cb.type='checkbox';cb.checked=it.moved;
       cb.onchange=function(){
@@ -261,6 +276,25 @@ body.ro form,body.ro .row-actions{display:none!important}
       var s=el('span','',p[0]+': ');s.appendChild(el('strong','',String(p[1])));sm.appendChild(s);
     });
   }
+  function showDetails(it,st){
+    var box=$('dl-body');box.replaceChildren();
+    var u=safeUrl(it.url);
+    var rows=[
+      ['Service',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
+      ['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
+      ['Start',fmtDate(it.start)],['End',fmtDate(it.end)],['Status',st[0]],
+      ['URL',u||'—'],['Comment',it.comment||'—']
+    ];
+    rows.forEach(function(r){
+      var dt=el('dt','',r[0]),dd=el('dd');
+      if(r[0]==='URL'&&u){var a=el('a','',u);a.href=u;a.target='_blank';a.rel='noopener noreferrer';dd.appendChild(a)}else dd.textContent=r[1];
+      box.appendChild(dt);box.appendChild(dd);
+    });
+    var d=$('dl');if(d.showModal)d.showModal();else d.setAttribute('open','');
+  }
+  $('dl-close').onclick=function(){$('dl').close()};
+  $('dl').addEventListener('click',function(ev){if(ev.target===this)this.close()});
+
   $('f').addEventListener('submit',function(ev){
     ev.preventDefault();var err=$('err');err.textContent='';
     var s=$('start').value,e=$('end').value;
