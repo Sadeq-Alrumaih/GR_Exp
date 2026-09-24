@@ -61,8 +61,9 @@ tr.done td{opacity:.6}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px}
 .tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--muted);font-weight:500}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
-.balance{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:22px}
-.balance .big{font-family:var(--mono);font-size:1.9rem;font-weight:500;letter-spacing:-.02em}
+.balances{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:22px}
+.balance{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+.balance .big{font-family:var(--mono);font-size:1.6rem;font-weight:500;letter-spacing:-.02em}
 .balance .who{font-size:1.05rem;font-weight:600;margin-bottom:2px}
 .balance .break{display:flex;flex-wrap:wrap;gap:6px 28px;margin-top:10px;font-family:var(--mono);font-size:.85rem;color:var(--muted)}
 .balance .break strong{color:var(--ink);font-weight:500}
@@ -108,10 +109,10 @@ dialog dd a{color:var(--accent)}
   </div>
 
   <section id="p-money" hidden>
-    <div class="balance" aria-live="polite">
-      <div class="who" id="bal-who">Settled up</div>
-      <div class="big" id="bal-amt">0.00 EUR</div>
-      <div class="break" id="bal-break"></div>
+    <div class="balances" aria-live="polite">
+      <div class="balance"><div class="who">Khaled paid</div><div class="big" id="bal-paid">0.00 EUR</div></div>
+      <div class="balance"><div class="who">Sadeq sent</div><div class="big" id="bal-sent">0.00 EUR</div></div>
+      <div class="balance"><div class="who" id="bal-who">Balance</div><div class="big" id="bal-amt">0.00 EUR</div></div>
     </div>
     <form id="pf" autocomplete="off">
       <label>Type
@@ -375,8 +376,8 @@ dialog dd a{color:var(--accent)}
     else{who.textContent='Settled up';amt.className='big'}
     amt.textContent=fmt(Math.abs(net))+' EUR';
     lastBal={who:who.textContent,amt:amt.textContent,auto:auto,paid:paid,sent:sent};
-    var b=$('bal-break');b.replaceChildren();
-    [['Charged to Khaled (auto)',fmt(auto)],['Other paid for me',fmt(paid)],['I sent him',fmt(sent)]].forEach(function(x){var s=el('span','',x[0]+': ');s.appendChild(el('strong','',x[1]));b.appendChild(s)});
+    $('bal-paid').textContent=fmt(auto+paid)+' EUR';
+    $('bal-sent').textContent=fmt(sent)+' EUR';
   }
   $('pf').addEventListener('submit',function(ev){
     ev.preventDefault();var pe=$('perr');pe.textContent='';
