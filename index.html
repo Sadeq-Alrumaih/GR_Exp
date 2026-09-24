@@ -41,7 +41,7 @@ button:disabled{opacity:.55;cursor:default}
 .actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .err{color:var(--crit-ink);font-size:.85rem}
 .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
-table{border-collapse:collapse;width:100%;min-width:760px}
+table{border-collapse:collapse;width:100%;min-width:900px}
 th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line)}
 td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
@@ -93,8 +93,7 @@ body.ro form,body.ro .row-actions{display:none!important}
     <h1>Sadeq GR Exp</h1>
     <div><span class="who-me" id="who-me"></span> <button id="signout" type="button">Sign out</button></div>
   </div>
-  <p class="sub">Every service billed to a borrowed IBAN, with the dates you need to move it to your own account. Stores no IBAN and no account details.</p>
-  <div class="notice"><b>Never type the IBAN here.</b> Write only the service, dates, amount and a comment.</div>
+  <p class="sub">Every service billed to a borrowed IBAN, with the dates you need to move it to your own account.</p>
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="t-ledger" aria-selected="true" type="button">Services</button>
@@ -132,6 +131,12 @@ body.ro form,body.ro .row-actions{display:none!important}
     <div class="summary" id="summary" aria-live="polite"></div>
     <form id="f" autocomplete="off">
       <label>Service<input id="service" required placeholder="MVG Ermäßigungsticket"></label>
+      <label>Account
+        <select id="account"><option>Khaled IBAN</option><option>Sadeq IBAN</option></select>
+      </label>
+      <label>Billing
+        <select id="billing"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+      </label>
       <label>Start date<input id="start" type="date" required></label>
       <label>End date<input id="end" type="date" required></label>
       <label>Amount (EUR)<input id="amount" type="number" step="0.01" min="0" required placeholder="43.00"></label>
@@ -144,7 +149,7 @@ body.ro form,body.ro .row-actions{display:none!important}
     </form>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Service</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th>Comment</th><th></th></tr></thead>
+        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th>Comment</th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty" hidden>No entries yet. Add the first service above.</div>
@@ -200,14 +205,14 @@ body.ro form,body.ro .row-actions{display:none!important}
     return api('/values/'+encodeURIComponent('Services!Z1000')+':clear',{method:'POST',body:{}}).catch(function(){});
   }
   function load(){
-    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:H&ranges=Payments!A2:E').then(function(res){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:J&ranges=Payments!A2:E').then(function(res){
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
-      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes'})});
+      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly'})});
       pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
       render();renderPays();
     });
   }
-  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no']}
+  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly']}
 
   /* ---------- Services tab ---------- */
   function status(it){
@@ -227,6 +232,8 @@ body.ro form,body.ro .row-actions{display:none!important}
       var st=status(it),tr=el('tr',st[2]?'done':''),c1=el('td','svc'),u=safeUrl(it.url);
       if(u){var a=el('a','',it.service);a.href=u;a.target='_blank';a.rel='noopener noreferrer';c1.appendChild(a)}else c1.textContent=it.service;
       tr.appendChild(c1);
+      tr.appendChild(el('td','',it.account||'—'));
+      tr.appendChild(el('td','',it.billing==='yearly'?'Yearly':'Monthly'));
       tr.appendChild(el('td','date',fmtDate(it.start)));
       tr.appendChild(el('td','date',fmtDate(it.end)));
       tr.appendChild(el('td','num',fmt(it.amount)));
@@ -236,21 +243,21 @@ body.ro form,body.ro .row-actions{display:none!important}
       cb.type='checkbox';cb.checked=it.moved;
       cb.onchange=function(){
         var prev=it.moved;it.moved=cb.checked;
-        api('/values/'+encodeURIComponent('Services!A'+it.row+':H'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':J'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
           .then(render).catch(function(e){it.moved=prev;cb.checked=prev;$('err').textContent=e.message});
       };
       mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
       var del=el('button','','Delete');del.type='button';
       del.onclick=function(){
         if(del.dataset.armed){
-          api('/values/'+encodeURIComponent('Services!A'+it.row+':H'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
+          api('/values/'+encodeURIComponent('Services!A'+it.row+':J'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
         }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
       };
       ra.appendChild(mv);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
-      if(!st[2]){open++;total+=it.amount;if(daysLeft(it.end)<=30)soon++}
+      if(!st[2]){open++;total+=it.billing==='yearly'?it.amount/12:it.amount;if(daysLeft(it.end)<=30)soon++}
     });
     var sm=$('summary');sm.replaceChildren();
-    [['Still on borrowed IBAN',open],['Amount (EUR)',fmt(total)],['Ending within 30 days',soon]].forEach(function(p){
+    [['Still on borrowed IBAN',open],['Per month (EUR)',fmt(total)],['Ending within 30 days',soon]].forEach(function(p){
       var s=el('span','',p[0]+': ');s.appendChild(el('strong','',String(p[1])));sm.appendChild(s);
     });
   }
@@ -258,8 +265,8 @@ body.ro form,body.ro .row-actions{display:none!important}
     ev.preventDefault();var err=$('err');err.textContent='';
     var s=$('start').value,e=$('end').value;
     if(e<s){err.textContent='End date is before the start date.';return}
-    var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false};
-    api('/values/Services!A:H:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
+    var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value};
+    api('/values/Services!A:J:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
       .then(function(){$('f').reset();return load()}).catch(function(e){err.textContent=e.message});
   });
 

@@ -13,7 +13,7 @@ Page address (GitHub Pages): https://sadeq-alrumaih.github.io/GR_Exp/
 1. New Google Sheet, name it `Sadeq GR Exp`.
 2. Rename the first tab to `Services`, add a second tab named `Payments` (exact names).
 3. Paste the header rows from `sheet-templates/`:
-   - Services: `id, service, start, end, url, amount, comment, moved`
+   - Services: `id, service, start, end, url, amount, comment, moved, account, billing`
    - Payments: `id, kind, date, amount, note`
 4. Share > add your friend's email as Editor. General access: Restricted.
 5. Copy the sheet ID from its URL: `docs.google.com/spreadsheets/d/<SHEET_ID>/edit`.
