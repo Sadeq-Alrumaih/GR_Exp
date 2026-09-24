@@ -125,6 +125,7 @@ dialog dd a{color:var(--accent)}
         <span class="err" id="perr" role="alert"></span>
       </div>
     </form>
+    <div class="foot" style="margin:0 0 12px"><button id="pdf" type="button">Create PDF</button></div>
     <div class="tablewrap">
       <table style="min-width:560px">
         <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th>Note</th><th></th></tr></thead>
@@ -174,12 +175,14 @@ dialog dd a{color:var(--accent)}
 
 <script src="config.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
 <script>
 (function(){
   'use strict';
   var CFG=window.LEDGER_CONFIG||{};
   var SHEETS='https://sheets.googleapis.com/v4/spreadsheets/';
-  var token=null, tokenClient=null, items=[], pays=[];
+  var token=null, tokenClient=null, items=[], pays=[], lastRows=[], lastBal=null;
   var $=function(id){return document.getElementById(id)};
   function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 
@@ -343,6 +346,7 @@ dialog dd a{color:var(--accent)}
     var all=pays.map(function(p){return {date:p.date,kind:p.kind,amount:p.amount,note:p.note,manual:p}})
       .concat(autos.map(function(a){return {date:a.date,kind:'auto',amount:a.amount,note:a.note}}));
     all.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
+    lastRows=all;
     $('pempty').hidden=all.length>0;
     var auto=0,paid=0,sent=0;
     all.forEach(function(p){
@@ -370,6 +374,7 @@ dialog dd a{color:var(--accent)}
     else if(net<0){who.textContent='He owes me';amt.className='big owe-me'}
     else{who.textContent='Settled up';amt.className='big'}
     amt.textContent=fmt(Math.abs(net))+' EUR';
+    lastBal={who:who.textContent,amt:amt.textContent,auto:auto,paid:paid,sent:sent};
     var b=$('bal-break');b.replaceChildren();
     [['Charged to Khaled (auto)',fmt(auto)],['Other paid for me',fmt(paid)],['I sent him',fmt(sent)]].forEach(function(x){var s=el('span','',x[0]+': ');s.appendChild(el('strong','',x[1]));b.appendChild(s)});
   }
@@ -382,6 +387,26 @@ dialog dd a{color:var(--accent)}
       .then(function(){$('pamount').value='';$('pnote').value='';return load()}).catch(function(e){pe.textContent=e.message});
   });
   $('pdate').value=isoToday();
+
+  /* Create PDF: every row on the Money tab (automatic charges and payments), same order as the page. */
+  $('pdf').addEventListener('click',function(){
+    var pe=$('perr');pe.textContent='';
+    var J=window.jspdf;
+    if(!J||!J.jsPDF){pe.textContent='The PDF library could not load. Check your connection and reload the page.';return}
+    if(!lastBal){pe.textContent='Nothing to export yet.';return}
+    var doc=new J.jsPDF({unit:'mm',format:'a4'});
+    doc.setFontSize(16);doc.text('Sadeq GR Exp - Money between us',14,18);
+    doc.setFontSize(10);doc.text('Created '+isoToday(),14,25);
+    doc.setFontSize(12);doc.text(lastBal.who+': '+lastBal.amt,14,34);
+    doc.setFontSize(10);
+    doc.text('Charged to Khaled (auto): '+fmt(lastBal.auto)+'   Other paid for me: '+fmt(lastBal.paid)+'   I sent him: '+fmt(lastBal.sent),14,40);
+    var body=lastRows.map(function(r){
+      var sent=r.kind==='sent';
+      return [fmtDate(r.date),sent?'I sent him':(r.kind==='auto'?'Charged to Khaled (auto)':'He paid for me'),(sent?'-':'+')+fmt(r.amount),r.note||''];
+    });
+    doc.autoTable({startY:46,head:[['Date','Type','EUR','Note']],body:body,styles:{fontSize:9},headStyles:{fillColor:[13,107,92]},columnStyles:{2:{halign:'right'}}});
+    doc.save('money-between-us-'+isoToday()+'.pdf');
+  });
 
   function showTab(m){
     $('p-money').hidden=!m;$('p-ledger').hidden=m;
