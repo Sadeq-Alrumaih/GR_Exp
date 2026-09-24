@@ -227,8 +227,19 @@ dialog dd a{color:var(--accent)}
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
       items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||'',autoRenew:r[11]===true||String(r[11]).toUpperCase()==='TRUE'||r[11]==='yes'})});
       pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
+      var seen={};pays=pays.filter(function(p){if(String(p.id).indexOf('auto:')===0){if(seen[p.id])return false;seen[p.id]=1}return true});
       render();renderPays();
     });
+  }
+  /* Sheet as database: every charge that is due is stored as a row on the Payments tab (kind 'auto').
+     The id is auto:<service id>:<date>, so a charge is written once. Editors write; viewers only read. */
+  function syncCharges(){
+    if(document.body.classList.contains('ro'))return Promise.resolve();
+    var have={};pays.forEach(function(p){have[p.id]=1});
+    var missing=autoCharges().filter(function(a){return !have[a.id]});
+    if(!missing.length)return Promise.resolve();
+    var rows=missing.map(function(a){return [a.id,'auto',a.date,a.amount,a.note]});
+    return api('/values/Payments!A:E:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:rows}}).then(load).catch(function(){});
   }
   function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'TRUE':'FALSE']}
 
@@ -266,14 +277,14 @@ dialog dd a{color:var(--accent)}
       cb.onchange=function(){
         var prev=it.moved,prevOn=it.movedOn;it.moved=cb.checked;it.movedOn=cb.checked?isoToday():'';
         api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
-          .then(function(){render();renderPays()}).catch(function(e){it.moved=prev;it.movedOn=prevOn;cb.checked=prev;$('err').textContent=e.message});
+          .then(function(){render();renderPays();return syncCharges()}).catch(function(e){it.moved=prev;it.movedOn=prevOn;cb.checked=prev;$('err').textContent=e.message});
       };
       mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
       var ar=el('label','chk'),ac=document.createElement('input');ac.type='checkbox';ac.checked=it.autoRenew;
       ac.onchange=function(){
         var prevAr=it.autoRenew;it.autoRenew=ac.checked;
         api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
-          .then(function(){render();renderPays()}).catch(function(e){it.autoRenew=prevAr;ac.checked=prevAr;$('err').textContent=e.message});
+          .then(function(){render();renderPays();return syncCharges()}).catch(function(e){it.autoRenew=prevAr;ac.checked=prevAr;$('err').textContent=e.message});
       };
       ar.appendChild(ac);ar.appendChild(document.createTextNode('Auto-renews'));
       var del=el('button','','Delete');del.type='button';
@@ -315,7 +326,7 @@ dialog dd a{color:var(--accent)}
     if(e<s){err.textContent='End date is before the start date.';return}
     var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value,autoRenew:$('autorenew').checked};
     api('/values/Services!A:L:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
-      .then(function(){$('f').reset();return load()}).catch(function(e){err.textContent=e.message});
+      .then(function(){$('f').reset();return load()}).then(syncCharges).catch(function(e){err.textContent=e.message});
   });
 
   /* ---------- Money tab ---------- */
@@ -336,14 +347,15 @@ dialog dd a{color:var(--accent)}
       for(var n=0;n<600;n++){
         var d=isoDate(addMonths(it.start,n*step));
         if((d>=it.end&&!it.autoRenew)||d>now||d>cutoff)break;
-        out.push({date:d,amount:it.amount,note:it.service});
+        out.push({id:'auto:'+it.id+':'+d,date:d,amount:it.amount,note:it.service});
       }
     });
     return out;
   }
   function renderPays(){
     var prows=$('prows');prows.replaceChildren();
-    var autos=autoCharges();
+    var have={};pays.forEach(function(p){have[p.id]=1});
+    var autos=autoCharges().filter(function(a){return !have[a.id]});
     var all=pays.map(function(p){return {date:p.date,kind:p.kind,amount:p.amount,note:p.note,manual:p}})
       .concat(autos.map(function(a){return {date:a.date,kind:'auto',amount:a.amount,note:a.note}}));
     all.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
@@ -359,7 +371,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(el('td','num '+(isSent?'minus':'plus'),(isSent?'−':'+')+fmt(p.amount)));
       tr.appendChild(el('td','cmt',p.note));
       var c=el('td');
-      if(p.manual){
+      if(p.manual&&p.kind!=='auto'){
         var ra=el('div','row-actions'),del=el('button','','Delete');del.type='button';
         del.onclick=function(){
           if(del.dataset.armed){
@@ -431,7 +443,7 @@ dialog dd a{color:var(--accent)}
       callback:function(resp){
         if(resp.error){showGate('Sign-in was cancelled or refused.');return}
         token=resp.access_token;saveTok(token,Number(resp.expires_in));
-        load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).catch(function(e){if(e.message!=='auth')showGate(e.message)});
+        load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges).catch(function(e){if(e.message!=='auth')showGate(e.message)});
       }
     });
     $('signin').onclick=function(){tokenClient.requestAccessToken({prompt:''})};
@@ -445,7 +457,7 @@ dialog dd a{color:var(--accent)}
     var saved=restoreTok();
     if(saved){
       token=saved;
-      load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false})
+      load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges)
         .catch(function(e){if(e.message!=='auth')showGate(e.message)});
     }
     var n=0,iv=setInterval(function(){
