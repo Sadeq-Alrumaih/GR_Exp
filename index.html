@@ -41,7 +41,7 @@ button:disabled{opacity:.55;cursor:default}
 .actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .err{color:var(--crit-ink);font-size:.85rem}
 .tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
-table{border-collapse:collapse;width:100%;min-width:900px}
+table{border-collapse:collapse;width:100%;min-width:1000px}
 th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line)}
 td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
@@ -147,6 +147,7 @@ dialog dd a{color:var(--accent)}
       <label>Start date<input id="start" type="date" required></label>
       <label>End date<input id="end" type="date" required></label>
       <label>Amount (EUR)<input id="amount" type="number" step="0.01" min="0" required></label>
+      <label class="chk"><input id="autorenew" type="checkbox">Auto-renews</label>
       <label class="wide">URL<input id="url" type="url"></label>
       <label class="wide">Comment<input id="comment"></label>
       <div class="actions">
@@ -156,7 +157,7 @@ dialog dd a{color:var(--accent)}
     </form>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
+        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Renewal</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty" hidden>No entries yet. Add the first service above.</div>
@@ -218,19 +219,20 @@ dialog dd a{color:var(--accent)}
     return api('/values/'+encodeURIComponent('Services!Z1000')+':clear',{method:'POST',body:{}}).catch(function(){});
   }
   function load(){
-    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:K&ranges=Payments!A2:E').then(function(res){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:L&ranges=Payments!A2:E').then(function(res){
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
-      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||''})});
+      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||'',autoRenew:r[11]===true||String(r[11]).toUpperCase()==='TRUE'||r[11]==='yes'})});
       pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
       render();renderPays();
     });
   }
-  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'']}
+  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'yes':'no']}
 
   /* ---------- Services tab ---------- */
   function status(it){
     if(it.moved) return ['Moved to my IBAN','p-done',true];
     var d=daysLeft(it.end);
+    if(d<0&&it.autoRenew) return ['Auto-renewed','p-ok',false];
     if(d<0) return ['Ended','p-done',true];
     if(d<=14) return [d+' days left','p-crit',false];
     if(d<=30) return [d+' days left','p-warn',false];
@@ -247,6 +249,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(c1);
       tr.appendChild(el('td','',it.account||'—'));
       tr.appendChild(el('td','',it.billing==='yearly'?'Yearly':'Monthly'));
+      tr.appendChild(el('td','',it.autoRenew?'Auto-renews':'Ends'));
       tr.appendChild(el('td','date',fmtDate(it.start)));
       tr.appendChild(el('td','date',fmtDate(it.end)));
       tr.appendChild(el('td','num',fmt(it.amount)));
@@ -258,17 +261,24 @@ dialog dd a{color:var(--accent)}
       cb.type='checkbox';cb.checked=it.moved;
       cb.onchange=function(){
         var prev=it.moved,prevOn=it.movedOn;it.moved=cb.checked;it.movedOn=cb.checked?isoToday():'';
-        api('/values/'+encodeURIComponent('Services!A'+it.row+':K'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
           .then(function(){render();renderPays()}).catch(function(e){it.moved=prev;it.movedOn=prevOn;cb.checked=prev;$('err').textContent=e.message});
       };
       mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
+      var ar=el('label','chk'),ac=document.createElement('input');ac.type='checkbox';ac.checked=it.autoRenew;
+      ac.onchange=function(){
+        var prevAr=it.autoRenew;it.autoRenew=ac.checked;
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+          .then(function(){render();renderPays()}).catch(function(e){it.autoRenew=prevAr;ac.checked=prevAr;$('err').textContent=e.message});
+      };
+      ar.appendChild(ac);ar.appendChild(document.createTextNode('Auto-renews'));
       var del=el('button','','Delete');del.type='button';
       del.onclick=function(){
         if(del.dataset.armed){
-          api('/values/'+encodeURIComponent('Services!A'+it.row+':K'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
+          api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
         }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
       };
-      ra.appendChild(mv);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
+      ra.appendChild(mv);ra.appendChild(ar);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
       if(!st[2]){open++;total+=it.billing==='yearly'?it.amount/12:it.amount;if(daysLeft(it.end)<=30)soon++}
     });
     var sm=$('summary');sm.replaceChildren();
@@ -281,7 +291,7 @@ dialog dd a{color:var(--accent)}
     var u=safeUrl(it.url);
     var rows=[
       ['Service',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
-      ['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
+      ['Renewal',it.autoRenew?'Auto-renews':'Ends on the end date'],['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
       ['Start',fmtDate(it.start)],['End',fmtDate(it.end)],['Status',st[0]],
       ['URL',u||'—'],['Comment',it.comment||'—']
     ];
@@ -299,8 +309,8 @@ dialog dd a{color:var(--accent)}
     ev.preventDefault();var err=$('err');err.textContent='';
     var s=$('start').value,e=$('end').value;
     if(e<s){err.textContent='End date is before the start date.';return}
-    var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value};
-    api('/values/Services!A:K:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
+    var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value,autoRenew:$('autorenew').checked};
+    api('/values/Services!A:L:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
       .then(function(){$('f').reset();return load()}).catch(function(e){err.textContent=e.message});
   });
 
@@ -321,7 +331,7 @@ dialog dd a{color:var(--accent)}
       var step=it.billing==='yearly'?12:1;
       for(var n=0;n<600;n++){
         var d=isoDate(addMonths(it.start,n*step));
-        if(d>=it.end||d>now||d>cutoff)break;
+        if((d>=it.end&&!it.autoRenew)||d>now||d>cutoff)break;
         out.push({date:d,amount:it.amount,note:it.service});
       }
     });
