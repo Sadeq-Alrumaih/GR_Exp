@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>IBAN Ledger</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#15221f; --muted:#5c6b67; --line:#d9e0dd;
+  --accent:#0d6b5c; --accent-ink:#ffffff;
+  --warn-bg:#fdecc8; --warn-ink:#6b4200; --crit-bg:#fbdcd6; --crit-ink:#7a1f10;
+  --ok-bg:#d8efe8; --ok-ink:#0b4a3f; --done-bg:#e6e9e8; --done-ink:#55625e;
+  --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1815; --surface:#17231f; --ink:#e6efec; --muted:#93a39e; --line:#2a3a35;
+  --accent:#4fc4ae; --accent-ink:#06211b;
+  --warn-bg:#4a3708; --warn-ink:#f6d68a; --crit-bg:#55221a; --crit-ink:#ffc2b6;
+  --ok-bg:#14382f; --ok-ink:#9fe3d3; --done-bg:#22302c; --done-ink:#93a39e;}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);padding-inline:16px;padding-block:28px 56px;margin:0}
+main{max-width:920px;margin:0 auto}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 20px;max-width:65ch}
+.notice{border:1px solid var(--line);background:var(--surface);padding:10px 14px;border-radius:6px;font-size:.88rem;color:var(--muted);margin-bottom:24px}
+.notice b{color:var(--ink)}
+.summary{display:flex;flex-wrap:wrap;gap:8px 28px;margin-bottom:20px;font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.summary strong{color:var(--ink);font-weight:500}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:28px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+input,select{font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px 10px;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wide{grid-column:1/-1}
+button{font:inherit;cursor:pointer;border-radius:5px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button:disabled{opacity:.55;cursor:default}
+.actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.err{color:var(--crit-ink);font-size:.85rem}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:760px}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,td.date{font-family:var(--mono);font-size:.85rem;white-space:nowrap}
+td.num{text-align:right}
+.svc{font-weight:600}.svc a{color:var(--accent)}
+.cmt{color:var(--muted);font-size:.85rem;max-width:26ch;overflow-wrap:anywhere}
+.pill{display:inline-block;font-size:.75rem;font-weight:600;border-radius:99px;padding:2px 10px;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok-ink)}.p-warn{background:var(--warn-bg);color:var(--warn-ink)}
+.p-crit{background:var(--crit-bg);color:var(--crit-ink)}.p-done{background:var(--done-bg);color:var(--done-ink)}
+.row-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row-actions button{padding:4px 9px;font-size:.8rem}
+.chk{flex-direction:row;align-items:center;gap:6px;font-size:.8rem;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
+.chk input{width:16px;height:16px;padding:0;accent-color:var(--accent)}
+tr.done td{opacity:.6}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:22px}
+.tab{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.balance{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:22px}
+.balance .big{font-family:var(--mono);font-size:1.9rem;font-weight:500;letter-spacing:-.02em}
+.balance .who{font-size:1.05rem;font-weight:600;margin-bottom:2px}
+.balance .break{display:flex;flex-wrap:wrap;gap:6px 28px;margin-top:10px;font-family:var(--mono);font-size:.85rem;color:var(--muted)}
+.balance .break strong{color:var(--ink);font-weight:500}
+.owe-me{color:var(--ok-ink)}.i-owe{color:var(--crit-ink)}
+.kind{font-size:.8rem;font-weight:600}
+td.plus{color:var(--crit-ink)}td.minus{color:var(--ok-ink)}
+.gate{max-width:440px;margin:12vh auto 0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:28px}
+.gate h1{margin-bottom:8px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.who-me{font-size:.85rem;color:var(--muted)}
+.foot{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+
+<!-- Sign-in gate: nothing from the sheet is requested until Google sign-in succeeds -->
+<div class="gate" id="gate">
+  <h1>IBAN Ledger</h1>
+  <p class="sub">Sign in with the Google account that has access to the ledger sheet.</p>
+  <button class="primary" id="signin" type="button">Sign in with Google</button>
+  <p class="err" id="gate-err" role="alert"></p>
+</div>
+
+<div id="app" hidden>
+  <div class="topbar">
+    <h1>IBAN Ledger</h1>
+    <div><span class="who-me" id="who-me"></span> <button id="signout" type="button">Sign out</button></div>
+  </div>
+  <p class="sub">Every service billed to a borrowed IBAN, with the dates you need to move it to your own account. Stores no IBAN and no account details.</p>
+  <div class="notice"><b>Never type the IBAN here.</b> Write only the service, dates, amount and a comment.</div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-ledger" aria-selected="true" type="button">Services</button>
+    <button class="tab" role="tab" id="t-money" aria-selected="false" type="button">Money between us</button>
+  </div>
+
+  <section id="p-money" hidden>
+    <div class="balance" aria-live="polite">
+      <div class="who" id="bal-who">Settled up</div>
+      <div class="big" id="bal-amt">0.00 EUR</div>
+      <div class="break" id="bal-break"></div>
+    </div>
+    <form id="pf" autocomplete="off">
+      <label>Type
+        <select id="pkind"><option value="paid">He paid for me</option><option value="sent">I sent him money</option></select>
+      </label>
+      <label>Date<input id="pdate" type="date" required></label>
+      <label>Amount (EUR)<input id="pamount" type="number" step="0.01" min="0.01" required placeholder="43.00"></label>
+      <label class="wide">Note<input id="pnote" placeholder="MVG ticket, October / bank transfer ref. 1234"></label>
+      <div class="actions">
+        <button class="primary" type="submit">Add payment</button>
+        <span class="err" id="perr" role="alert"></span>
+      </div>
+    </form>
+    <div class="tablewrap">
+      <table style="min-width:560px">
+        <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th>Note</th><th></th></tr></thead>
+        <tbody id="prows"></tbody>
+      </table>
+      <div class="empty" id="pempty" hidden>No payments yet.</div>
+    </div>
+  </section>
+
+  <section id="p-ledger">
+    <div class="summary" id="summary" aria-live="polite"></div>
+    <form id="f" autocomplete="off">
+      <label>Service<input id="service" required placeholder="MVG Ermäßigungsticket"></label>
+      <label>Start date<input id="start" type="date" required></label>
+      <label>End date<input id="end" type="date" required></label>
+      <label>Amount (EUR)<input id="amount" type="number" step="0.01" min="0" required placeholder="43.00"></label>
+      <label class="wide">URL<input id="url" type="url" placeholder="https://www.mvg.de/kundenportal"></label>
+      <label class="wide">Comment<input id="comment" placeholder="Monthly SEPA mandate, cancel by the 20th"></label>
+      <div class="actions">
+        <button class="primary" type="submit">Add entry</button>
+        <span class="err" id="err" role="alert"></span>
+      </div>
+    </form>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Service</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th>Comment</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden>No entries yet. Add the first service above.</div>
+    </div>
+  </section>
+</div>
+</main>
+
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+(function(){
+  'use strict';
+  var CFG=window.LEDGER_CONFIG||{};
+  var SHEETS='https://sheets.googleapis.com/v4/spreadsheets/';
+  var token=null, tokenClient=null, items=[], pays=[];
+  var $=function(id){return document.getElementById(id)};
+  function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+
+  /* ---------- dates & helpers ---------- */
+  function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+  function parse(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+  function daysLeft(s){return Math.round((parse(s)-today())/864e5)}
+  function fmtDate(s){var d=parse(s);return isNaN(d)?String(s):d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+  function safeUrl(u){try{var x=new URL(u);return (x.protocol==='https:'||x.protocol==='http:')?x.href:''}catch(e){return ''}}
+  function fmt(n){return n.toFixed(2)}
+  function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+  function isoToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+  /* ---------- Sheets API ---------- */
+  function api(path,opts){
+    opts=opts||{};
+    return fetch(SHEETS+encodeURIComponent(CFG.SHEET_ID)+path,{
+      method:opts.method||'GET',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+      body:opts.body?JSON.stringify(opts.body):undefined
+    }).then(function(r){
+      if(r.status===401){token=null;showGate('Session expired. Sign in again.');throw new Error('auth')}
+      if(r.status===403||r.status===404){throw new Error('This Google account has no access to the ledger sheet.')}
+      if(!r.ok){throw new Error('Google Sheets error '+r.status)}
+      return r.json();
+    });
+  }
+  var RAW='valueInputOption=RAW';
+  function load(){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:H&ranges=Payments!A2:E').then(function(res){
+      var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
+      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes'})});
+      pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
+      render();renderPays();
+    });
+  }
+  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no']}
+
+  /* ---------- Services tab ---------- */
+  function status(it){
+    if(it.moved) return ['Moved to my IBAN','p-done',true];
+    var d=daysLeft(it.end);
+    if(d<0) return ['Ended','p-done',true];
+    if(d<=14) return [d+' days left','p-crit',false];
+    if(d<=30) return [d+' days left','p-warn',false];
+    return ['Active · '+d+' days','p-ok',false];
+  }
+  function render(){
+    var rows=$('rows');rows.replaceChildren();
+    var sorted=items.slice().sort(function(a,b){return a.end<b.end?-1:a.end>b.end?1:0});
+    $('empty').hidden=sorted.length>0;
+    var open=0,total=0,soon=0;
+    sorted.forEach(function(it){
+      var st=status(it),tr=el('tr',st[2]?'done':''),c1=el('td','svc'),u=safeUrl(it.url);
+      if(u){var a=el('a','',it.service);a.href=u;a.target='_blank';a.rel='noopener noreferrer';c1.appendChild(a)}else c1.textContent=it.service;
+      tr.appendChild(c1);
+      tr.appendChild(el('td','date',fmtDate(it.start)));
+      tr.appendChild(el('td','date',fmtDate(it.end)));
+      tr.appendChild(el('td','num',fmt(it.amount)));
+      var c5=el('td');c5.appendChild(el('span','pill '+st[1],st[0]));tr.appendChild(c5);
+      tr.appendChild(el('td','cmt',it.comment));
+      var c7=el('td'),ra=el('div','row-actions'),mv=el('label','chk'),cb=document.createElement('input');
+      cb.type='checkbox';cb.checked=it.moved;
+      cb.onchange=function(){
+        var prev=it.moved;it.moved=cb.checked;
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':H'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+          .then(render).catch(function(e){it.moved=prev;cb.checked=prev;$('err').textContent=e.message});
+      };
+      mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
+      var del=el('button','','Delete');del.type='button';
+      del.onclick=function(){
+        if(del.dataset.armed){
+          api('/values/'+encodeURIComponent('Services!A'+it.row+':H'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
+        }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
+      };
+      ra.appendChild(mv);ra.appendChild(del);c7.appendChild(ra);tr.appendChild(c7);rows.appendChild(tr);
+      if(!st[2]){open++;total+=it.amount;if(daysLeft(it.end)<=30)soon++}
+    });
+    var sm=$('summary');sm.replaceChildren();
+    [['Still on borrowed IBAN',open],['Amount (EUR)',fmt(total)],['Ending within 30 days',soon]].forEach(function(p){
+      var s=el('span','',p[0]+': ');s.appendChild(el('strong','',String(p[1])));sm.appendChild(s);
+    });
+  }
+  $('f').addEventListener('submit',function(ev){
+    ev.preventDefault();var err=$('err');err.textContent='';
+    var s=$('start').value,e=$('end').value;
+    if(e<s){err.textContent='End date is before the start date.';return}
+    var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false};
+    api('/values/Services!A:H:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}})
+      .then(function(){$('f').reset();return load()}).catch(function(e){err.textContent=e.message});
+  });
+
+  /* ---------- Money tab ---------- */
+  function renderPays(){
+    var prows=$('prows');prows.replaceChildren();
+    var sorted=pays.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
+    $('pempty').hidden=sorted.length>0;
+    var paid=0,sent=0;
+    sorted.forEach(function(p){
+      var isPaid=p.kind==='paid';
+      if(isPaid)paid+=p.amount;else sent+=p.amount;
+      var tr=el('tr');
+      tr.appendChild(el('td','date',fmtDate(p.date)));
+      var k=el('td');k.appendChild(el('span','kind '+(isPaid?'i-owe':'owe-me'),isPaid?'He paid for me':'I sent him'));tr.appendChild(k);
+      tr.appendChild(el('td','num '+(isPaid?'plus':'minus'),(isPaid?'+':'−')+fmt(p.amount)));
+      tr.appendChild(el('td','cmt',p.note));
+      var c=el('td'),del=el('button','','Delete');del.type='button';del.style.cssText='padding:4px 9px;font-size:.8rem';
+      del.onclick=function(){
+        if(del.dataset.armed){
+          api('/values/'+encodeURIComponent('Payments!A'+p.row+':E'+p.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('perr').textContent=e.message});
+        }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
+      };
+      c.appendChild(del);tr.appendChild(c);prows.appendChild(tr);
+    });
+    var net=Math.round((paid-sent)*100)/100,who=$('bal-who'),amt=$('bal-amt');
+    if(net>0){who.textContent='I owe him';amt.className='big i-owe'}
+    else if(net<0){who.textContent='He owes me';amt.className='big owe-me'}
+    else{who.textContent='Settled up';amt.className='big'}
+    amt.textContent=fmt(Math.abs(net))+' EUR';
+    var b=$('bal-break');b.replaceChildren();
+    [['He paid for me',fmt(paid)],['I sent him',fmt(sent)]].forEach(function(x){var s=el('span','',x[0]+': ');s.appendChild(el('strong','',x[1]));b.appendChild(s)});
+  }
+  $('pf').addEventListener('submit',function(ev){
+    ev.preventDefault();var pe=$('perr');pe.textContent='';
+    var a=parseFloat($('pamount').value);
+    if(!(a>0)){pe.textContent='Enter an amount above 0.';return}
+    var row=[newId(),$('pkind').value,$('pdate').value,a,$('pnote').value.trim()];
+    api('/values/Payments!A:E:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[row]}})
+      .then(function(){$('pamount').value='';$('pnote').value='';return load()}).catch(function(e){pe.textContent=e.message});
+  });
+  $('pdate').value=isoToday();
+
+  function showTab(m){
+    $('p-money').hidden=!m;$('p-ledger').hidden=m;
+    $('t-money').setAttribute('aria-selected',m);$('t-ledger').setAttribute('aria-selected',!m);
+  }
+  $('t-money').onclick=function(){showTab(true)};
+  $('t-ledger').onclick=function(){showTab(false)};
+
+  /* ---------- Google sign-in ---------- */
+  function showGate(msg){$('app').hidden=true;$('gate').hidden=false;$('gate-err').textContent=msg||'';items=[];pays=[];}
+  function initAuth(){
+    if(!CFG.CLIENT_ID||!CFG.SHEET_ID||/YOUR_/.test(CFG.CLIENT_ID+CFG.SHEET_ID)){
+      $('gate-err').textContent='Setup incomplete: add your CLIENT_ID and SHEET_ID to config.js.';return}
+    tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:CFG.CLIENT_ID,
+      scope:'https://www.googleapis.com/auth/spreadsheets',
+      callback:function(resp){
+        if(resp.error){showGate('Sign-in was cancelled or refused.');return}
+        token=resp.access_token;
+        load().then(function(){$('gate').hidden=true;$('app').hidden=false}).catch(function(e){if(e.message!=='auth')showGate(e.message)});
+      }
+    });
+    $('signin').onclick=function(){tokenClient.requestAccessToken({prompt:''})};
+  }
+  $('signout').onclick=function(){
+    var t=token;token=null;
+    if(t&&window.google)google.accounts.oauth2.revoke(t,function(){});
+    showGate('Signed out.');
+  };
+  window.addEventListener('load',function(){
+    var n=0,iv=setInterval(function(){
+      if(window.google&&google.accounts){clearInterval(iv);initAuth()}
+      else if(++n>50){clearInterval(iv);$('gate-err').textContent='Could not load Google sign-in. Check your connection.'}
+    },100);
+  });
+})();
+</script>
+</body>
+</html>
