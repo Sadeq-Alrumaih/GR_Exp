@@ -115,7 +115,7 @@ dialog dd a{color:var(--accent)}
     <div class="balances" aria-live="polite">
       <div class="balance"><div class="who">Khaled paid</div><div class="big" id="bal-paid">0.00 EUR</div></div>
       <div class="balance"><div class="who">Sadeq sent</div><div class="big" id="bal-sent">0.00 EUR</div></div>
-      <div class="balance"><div class="who" id="bal-who">Balance</div><div class="big" id="bal-amt">0.00 EUR</div></div>
+      <div class="balance"><div class="who" id="bal-who">Sadeq Balance</div><div class="big" id="bal-amt">0.00 EUR</div></div>
     </div>
     <form id="pf" autocomplete="off">
       <label>Type
@@ -386,10 +386,10 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(c);prows.appendChild(tr);
     });
     var net=Math.round((auto+paid-sent)*100)/100,who=$('bal-who'),amt=$('bal-amt');
-    if(net>0){who.textContent='I owe him';amt.className='big i-owe'}
-    else if(net<0){who.textContent='He owes me';amt.className='big owe-me'}
-    else{who.textContent='Settled up';amt.className='big'}
-    amt.textContent=fmt(Math.abs(net))+' EUR';
+    who.textContent='Sadeq Balance';
+    if(net>0){amt.className='big i-owe';amt.textContent='-'+fmt(net)+' EUR'}
+    else if(net<0){amt.className='big owe-me';amt.textContent='+'+fmt(-net)+' EUR'}
+    else{amt.className='big';amt.textContent=fmt(0)+' EUR'}
     lastBal={who:who.textContent,amt:amt.textContent,auto:auto,paid:paid,sent:sent};
     $('bal-paid').textContent=fmt(auto+paid)+' EUR';
     $('bal-sent').textContent=fmt(sent)+' EUR';
