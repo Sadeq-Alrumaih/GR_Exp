@@ -227,9 +227,19 @@ dialog dd a{color:var(--accent)}
   function probeAccess(){
     return api('/values/'+encodeURIComponent('Services!Z1000')+':clear',{method:'POST',body:{}}).catch(function(){});
   }
+  var hdr={s:true,p:true};
+  /* Adds the modified_by / modified_at header cells once, so nobody has to edit the sheet by hand. */
+  function ensureHeaders(){
+    if(document.body.classList.contains('ro')||(hdr.s&&hdr.p))return Promise.resolve();
+    var data=[];
+    if(!hdr.s)data.push({range:'Services!M1:N1',values:[['modified_by','modified_at']]});
+    if(!hdr.p)data.push({range:'Payments!F1:G1',values:[['modified_by','modified_at']]});
+    return api('/values:batchUpdate',{method:'POST',body:{valueInputOption:'RAW',data:data}}).then(function(){hdr={s:true,p:true}}).catch(function(){});
+  }
   function load(){
-    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:N&ranges=Payments!A2:G').then(function(res){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:N&ranges=Payments!A2:G&ranges=Services!M1:N1&ranges=Payments!F1:G1').then(function(res){
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
+      hdr={s:!!(res.valueRanges[2].values||[]).length,p:!!(res.valueRanges[3].values||[]).length};
       items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||'',autoRenew:r[11]===true||String(r[11]).toUpperCase()==='TRUE'||r[11]==='yes',by:r[12]||'',at:r[13]||''})});
       pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||'',by:r[5]||'',at:r[6]||''})});
       var seen={};pays=pays.filter(function(p){if(String(p.id).indexOf('auto:')===0){if(seen[p.id])return false;seen[p.id]=1}return true});
@@ -477,7 +487,7 @@ dialog dd a{color:var(--accent)}
       if(!r.ok)throw new Error('Sign in again so changes can record who made them.');return r.json()}).then(function(u){me=u.email||''});
   }
   function start(){
-    getMe().then(load).then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges)
+    getMe().then(load).then(probeAccess).then(ensureHeaders).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges)
       .catch(function(e){if(e.message!=='auth')showGate(e.message)});
   }
   function initAuth(){
