@@ -55,6 +55,7 @@ td.num{text-align:right}
 .p-ok{background:var(--ok-bg);color:var(--ok-ink)}.p-warn{background:var(--warn-bg);color:var(--warn-ink)}
 .p-org{background:var(--org-bg);color:var(--org-ink)}
 .p-crit{background:var(--crit-bg);color:var(--crit-ink)}.p-done{background:var(--done-bg);color:var(--done-ink)}
+td.mod{font-size:6px}
 .row-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row-actions button{padding:4px 9px;font-size:.8rem}
 .chk{flex-direction:row;align-items:center;gap:6px;font-size:.8rem;text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
@@ -405,7 +406,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(el('td','num '+(isSent?'minus':'plus'),(isSent?'−':'+')+fmt(p.amount)));
       tr.appendChild(el('td','cmt',p.note));
       var mo=p.manual&&p.manual.at?fmtAt(p.manual.at)+(p.manual.by?' · '+p.manual.by:''):'';
-      tr.appendChild(el('td','cmt',mo));
+      tr.appendChild(el('td','cmt mod',mo));
       var c=el('td');
       if(p.manual&&p.kind!=='auto'){
         var ra=el('div','row-actions'),del=el('button','','Delete');del.type='button';
