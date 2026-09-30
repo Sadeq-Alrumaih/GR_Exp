@@ -143,7 +143,7 @@ dialog dd a{color:var(--accent)}
   <section id="p-ledger">
     <div class="summary" id="summary" aria-live="polite"></div>
     <form id="f" autocomplete="off">
-      <label>Service<input id="service" required></label>
+      <label>Subscription<input id="service" required></label>
       <label>Account
         <select id="account"><option>Khaled IBAN</option><option>Sadeq IBAN</option></select>
       </label>
@@ -164,7 +164,7 @@ dialog dd a{color:var(--accent)}
     </form>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Service</th><th>Account</th><th>Billing</th><th>Auto renew</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
+        <thead><tr><th>Subscription</th><th>Account</th><th>Billing</th><th>Auto renew</th><th>Start</th><th>End</th><th style="text-align:right">EUR</th><th>Status</th><th></th><th></th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty" hidden>No subscriptions yet. Add the first one above.</div>
@@ -173,8 +173,8 @@ dialog dd a{color:var(--accent)}
 </div>
 </main>
 
-<dialog id="dl" aria-label="Service details">
-  <h2>Service details</h2>
+<dialog id="dl" aria-label="Subscription details">
+  <h2>Subscription details</h2>
   <dl id="dl-body"></dl>
   <button id="dl-close" type="button" class="primary">Close</button>
 </dialog>
@@ -324,7 +324,7 @@ dialog dd a{color:var(--accent)}
     var box=$('dl-body');box.replaceChildren();
     var u=safeUrl(it.url);
     var rows=[
-      ['Service',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
+      ['Subscription',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
       ['Auto renew',it.autoRenew?'True':'False'],['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
       ['Start',fmtDate(it.start)],['End',fmtDate(it.end)],['Status',st[0]],
       ['URL',u||'—'],['Comment',it.comment||'—'],['Last modified',it.at?fmtAt(it.at)+(it.by?' by '+it.by:''):'—']
