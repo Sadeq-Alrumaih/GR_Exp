@@ -1,1 +1,1 @@
-id,service,start,end,url,amount,comment,moved,account,billing,moved_on,auto_renew
+id,service,start,end,url,amount,comment,moved,account,billing,moved_on,auto_renew,modified_by,modified_at

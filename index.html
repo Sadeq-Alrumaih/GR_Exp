@@ -133,7 +133,7 @@ dialog dd a{color:var(--accent)}
     <div class="foot" style="margin:0 0 12px"><button id="pdf" type="button">Create PDF</button></div>
     <div class="tablewrap">
       <table style="min-width:560px">
-        <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th>Note</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th>Note</th><th>Last modified</th><th></th></tr></thead>
         <tbody id="prows"></tbody>
       </table>
       <div class="empty" id="pempty" hidden>No payments yet.</div>
@@ -228,10 +228,10 @@ dialog dd a{color:var(--accent)}
     return api('/values/'+encodeURIComponent('Services!Z1000')+':clear',{method:'POST',body:{}}).catch(function(){});
   }
   function load(){
-    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:L&ranges=Payments!A2:E').then(function(res){
+    return api('/values:batchGet?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&ranges=Services!A2:N&ranges=Payments!A2:G').then(function(res){
       var s=res.valueRanges[0].values||[], p=res.valueRanges[1].values||[];
-      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||'',autoRenew:r[11]===true||String(r[11]).toUpperCase()==='TRUE'||r[11]==='yes'})});
-      pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||''})});
+      items=[];s.forEach(function(r,i){if(r[0])items.push({row:i+2,id:r[0],service:r[1]||'',start:r[2]||'',end:r[3]||'',url:r[4]||'',amount:Number(r[5])||0,comment:r[6]||'',moved:r[7]===true||String(r[7]).toUpperCase()==='TRUE'||r[7]==='yes',account:r[8]||'',billing:r[9]==='yearly'?'yearly':'monthly',movedOn:r[10]||'',autoRenew:r[11]===true||String(r[11]).toUpperCase()==='TRUE'||r[11]==='yes',by:r[12]||'',at:r[13]||''})});
+      pays=[];p.forEach(function(r,i){if(r[0])pays.push({row:i+2,id:r[0],kind:r[1],date:r[2]||'',amount:Number(r[3])||0,note:r[4]||'',by:r[5]||'',at:r[6]||''})});
       var seen={};pays=pays.filter(function(p){if(String(p.id).indexOf('auto:')===0){if(seen[p.id])return false;seen[p.id]=1}return true});
       render();renderPays();
     });
@@ -243,10 +243,13 @@ dialog dd a{color:var(--accent)}
     var have={};pays.forEach(function(p){have[p.id]=1});
     var missing=autoCharges().filter(function(a){return !have[a.id]});
     if(!missing.length)return Promise.resolve();
-    var rows=missing.map(function(a){return [a.id,'auto',a.date,a.amount,a.note]});
-    return api('/values/Payments!A:E:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:rows}}).then(load).catch(function(){});
+    var rows=missing.map(function(a){return [a.id,'auto',a.date,a.amount,a.note,'auto',stamp()]});
+    return api('/values/Payments!A:G:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:rows}}).then(load).catch(function(){});
   }
-  function svcRow(it){return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'TRUE':'FALSE']}
+  var me='';
+  function stamp(){return new Date().toISOString()}
+  function fmtAt(s){var d=new Date(s);return isNaN(d)?'':d.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+  function svcRow(it){it.by=me;it.at=stamp();return [it.id,it.service,it.start,it.end,it.url,it.amount,it.comment,it.moved?'yes':'no',it.account||'',it.billing||'monthly',it.movedOn||'',it.autoRenew?'TRUE':'FALSE',it.by,it.at]}
 
   /* ---------- Services tab ---------- */
   function status(it){
@@ -281,21 +284,21 @@ dialog dd a{color:var(--accent)}
       cb.type='checkbox';cb.checked=it.moved;
       cb.onchange=function(){
         var prev=it.moved,prevOn=it.movedOn;it.moved=cb.checked;it.movedOn=cb.checked?isoToday():'';
-        api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':N'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
           .then(function(){render();renderPays();return syncCharges()}).catch(function(e){it.moved=prev;it.movedOn=prevOn;cb.checked=prev;$('err').textContent=e.message});
       };
       mv.appendChild(cb);mv.appendChild(document.createTextNode('Moved to my IBAN'));
       var ar=el('label','chk'),ac=document.createElement('input');ac.type='checkbox';ac.checked=it.autoRenew;
       ac.onchange=function(){
         var prevAr=it.autoRenew;it.autoRenew=ac.checked;
-        api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
+        api('/values/'+encodeURIComponent('Services!A'+it.row+':N'+it.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})
           .then(function(){render();renderPays();return syncCharges()}).catch(function(e){it.autoRenew=prevAr;ac.checked=prevAr;$('err').textContent=e.message});
       };
       ar.appendChild(ac);ar.appendChild(document.createTextNode('Auto-renews'));
       var del=el('button','','Delete');del.type='button';
       del.onclick=function(){
         if(del.dataset.armed){
-          api('/values/'+encodeURIComponent('Services!A'+it.row+':L'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
+          api('/values/'+encodeURIComponent('Services!A'+it.row+':N'+it.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('err').textContent=e.message});
         }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
       };
       var ed=el('button','','Edit');ed.type='button';ed.onclick=function(){editService(it)};
@@ -314,7 +317,7 @@ dialog dd a{color:var(--accent)}
       ['Service',it.service],['Account',it.account||'—'],['Billing',it.billing==='yearly'?'Yearly':'Monthly'],
       ['Auto renew',it.autoRenew?'True':'False'],['Amount',fmt(it.amount)+' EUR'+(it.billing==='yearly'?' / year':' / month')],
       ['Start',fmtDate(it.start)],['End',fmtDate(it.end)],['Status',st[0]],
-      ['URL',u||'—'],['Comment',it.comment||'—']
+      ['URL',u||'—'],['Comment',it.comment||'—'],['Last modified',it.at?fmtAt(it.at)+(it.by?' by '+it.by:''):'—']
     ];
     rows.forEach(function(r){
       var dt=el('dt','',r[0]),dd=el('dd');
@@ -333,8 +336,8 @@ dialog dd a{color:var(--accent)}
     var it={id:newId(),service:$('service').value.trim(),start:s,end:e,url:$('url').value.trim(),amount:parseFloat($('amount').value),comment:$('comment').value.trim(),moved:false,account:$('account').value,billing:$('billing').value,autoRenew:$('autorenew').checked};
     var req;
     if(editSvc){it.id=editSvc.id;it.moved=editSvc.moved;it.movedOn=editSvc.movedOn;
-      req=api('/values/'+encodeURIComponent('Services!A'+editSvc.row+':L'+editSvc.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})}
-    else req=api('/values/Services!A:L:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}});
+      req=api('/values/'+encodeURIComponent('Services!A'+editSvc.row+':N'+editSvc.row)+'?'+RAW,{method:'PUT',body:{values:[svcRow(it)]}})}
+    else req=api('/values/Services!A:N:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[svcRow(it)]}});
     req.then(function(){endEditSvc();return load()}).then(syncCharges).catch(function(e){err.textContent=e.message});
   });
   /* Edit: the row is loaded into the same form; Save writes over that row (id, moved status and moved date are kept). */
@@ -391,12 +394,14 @@ dialog dd a{color:var(--accent)}
       var k=el('td');k.appendChild(el('span','kind '+(isSent?'owe-me':'i-owe'),isSent?'I sent him':(p.kind==='auto'?'Charged to Khaled (auto)':'He paid for me')));tr.appendChild(k);
       tr.appendChild(el('td','num '+(isSent?'minus':'plus'),(isSent?'−':'+')+fmt(p.amount)));
       tr.appendChild(el('td','cmt',p.note));
+      var mo=p.manual&&p.manual.at?fmtAt(p.manual.at)+(p.manual.by?' · '+p.manual.by:''):'';
+      tr.appendChild(el('td','cmt',mo));
       var c=el('td');
       if(p.manual&&p.kind!=='auto'){
         var ra=el('div','row-actions'),del=el('button','','Delete');del.type='button';
         del.onclick=function(){
           if(del.dataset.armed){
-            api('/values/'+encodeURIComponent('Payments!A'+p.manual.row+':E'+p.manual.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('perr').textContent=e.message});
+            api('/values/'+encodeURIComponent('Payments!A'+p.manual.row+':G'+p.manual.row)+':clear',{method:'POST',body:{}}).then(load).catch(function(e){$('perr').textContent=e.message});
           }else{del.dataset.armed='1';del.textContent='Confirm?';setTimeout(function(){del.dataset.armed='';del.textContent='Delete'},3000)}
         };
         var ed=el('button','','Edit');ed.type='button';ed.onclick=function(){editPay(p.manual)};
@@ -417,9 +422,9 @@ dialog dd a{color:var(--accent)}
     ev.preventDefault();var pe=$('perr');pe.textContent='';
     var a=parseFloat($('pamount').value);
     if(!(a>0)){pe.textContent='Enter an amount above 0.';return}
-    var row=[editPay_&&editPay_.id||newId(),$('pkind').value,$('pdate').value,a,$('pnote').value.trim()],req;
-    if(editPay_)req=api('/values/'+encodeURIComponent('Payments!A'+editPay_.row+':E'+editPay_.row)+'?'+RAW,{method:'PUT',body:{values:[row]}});
-    else req=api('/values/Payments!A:E:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[row]}});
+    var row=[editPay_&&editPay_.id||newId(),$('pkind').value,$('pdate').value,a,$('pnote').value.trim(),me,stamp()],req;
+    if(editPay_)req=api('/values/'+encodeURIComponent('Payments!A'+editPay_.row+':G'+editPay_.row)+'?'+RAW,{method:'PUT',body:{values:[row]}});
+    else req=api('/values/Payments!A:G:append?'+RAW+'&insertDataOption=INSERT_ROWS',{method:'POST',body:{values:[row]}});
     req.then(function(){endEditPay();return load()}).catch(function(e){pe.textContent=e.message});
   });
   var editPay_=null;
@@ -466,16 +471,25 @@ dialog dd a{color:var(--accent)}
   function restoreTok(){try{var o=JSON.parse(sessionStorage.getItem('gr_tok')||'null');if(o&&typeof o.t==='string'&&o.e>Date.now())return o.t}catch(e){}return null}
   function clearTok(){try{sessionStorage.removeItem('gr_tok')}catch(e){}}
   function showGate(msg){clearTok();$('app').hidden=true;$('gate').hidden=false;$('gate-err').textContent=msg||'';items=[];pays=[];}
+  /* Who is signed in: recorded on every insert and update. A token from before this scope was added has no email, so sign in again. */
+  function getMe(){
+    return fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{'Authorization':'Bearer '+token}}).then(function(r){
+      if(!r.ok)throw new Error('Sign in again so changes can record who made them.');return r.json()}).then(function(u){me=u.email||''});
+  }
+  function start(){
+    getMe().then(load).then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges)
+      .catch(function(e){if(e.message!=='auth')showGate(e.message)});
+  }
   function initAuth(){
     if(!CFG.CLIENT_ID||!CFG.SHEET_ID||/YOUR_/.test(CFG.CLIENT_ID+CFG.SHEET_ID)){
       $('gate-err').textContent='Setup incomplete: add your CLIENT_ID and SHEET_ID to config.js.';return}
     tokenClient=google.accounts.oauth2.initTokenClient({
       client_id:CFG.CLIENT_ID,
-      scope:'https://www.googleapis.com/auth/spreadsheets',
+      scope:'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
       callback:function(resp){
         if(resp.error){showGate('Sign-in was cancelled or refused.');return}
         token=resp.access_token;saveTok(token,Number(resp.expires_in));
-        load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges).catch(function(e){if(e.message!=='auth')showGate(e.message)});
+        start();
       }
     });
     $('signin').onclick=function(){tokenClient.requestAccessToken({prompt:''})};
@@ -489,8 +503,7 @@ dialog dd a{color:var(--accent)}
     var saved=restoreTok();
     if(saved){
       token=saved;
-      load().then(probeAccess).then(function(){$('gate').hidden=true;$('app').hidden=false}).then(syncCharges)
-        .catch(function(e){if(e.message!=='auth')showGate(e.message)});
+      start();
     }
     var n=0,iv=setInterval(function(){
       if(window.google&&google.accounts){clearInterval(iv);initAuth()}
