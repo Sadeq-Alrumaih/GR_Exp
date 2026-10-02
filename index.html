@@ -134,7 +134,7 @@ dialog dd a{color:var(--accent)}
     <div class="foot" style="margin:0 0 12px"><button id="pdf" type="button">Create PDF</button></div>
     <div class="tablewrap">
       <table style="min-width:560px">
-        <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th>Note</th><th>Last modified</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Type</th><th style="text-align:right">EUR</th><th style="text-align:right">Sadeq balance</th><th>Note</th><th>Last modified</th><th></th></tr></thead>
         <tbody id="prows"></tbody>
       </table>
       <div class="empty" id="pempty" hidden>No payments yet.</div>
@@ -395,6 +395,13 @@ dialog dd a{color:var(--accent)}
       .concat(autos.map(function(a){return {date:a.date,kind:'auto',amount:a.amount,note:a.note}}));
     all.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
     lastRows=all;
+    /* Balance after each row, oldest at the bottom; same sign convention as the Sadeq Balance card (+ = he owes me, - = I owe him). */
+    var run=0;
+    for(var i=all.length-1;i>=0;i--){
+      run=Math.round((run+(all[i].kind==='sent'?-all[i].amount:all[i].amount))*100)/100;
+      all[i].bal=run>0?'-'+fmt(run):run<0?'+'+fmt(-run):fmt(0);
+      all[i].balCls=run>0?'i-owe':run<0?'owe-me':'';
+    }
     $('pempty').hidden=all.length>0;
     var auto=0,paid=0,sent=0;
     all.forEach(function(p){
@@ -404,6 +411,7 @@ dialog dd a{color:var(--accent)}
       tr.appendChild(el('td','date',fmtDate(p.date)));
       var k=el('td');k.appendChild(el('span','kind '+(isSent?'owe-me':'i-owe'),isSent?'I sent him':(p.kind==='auto'?'Charged to Khaled (auto)':'He paid for me')));tr.appendChild(k);
       tr.appendChild(el('td','num '+(isSent?'minus':'plus'),(isSent?'−':'+')+fmt(p.amount)));
+      tr.appendChild(el('td','num '+p.balCls,p.bal));
       tr.appendChild(el('td','cmt',p.note));
       var mo=p.manual&&p.manual.at?fmtAt(p.manual.at)+(p.manual.by?' · '+p.manual.by:''):'';
       tr.appendChild(el('td','cmt mod',mo));
@@ -463,9 +471,9 @@ dialog dd a{color:var(--accent)}
     doc.text('Charged to Khaled (auto): '+fmt(lastBal.auto)+'   Other paid for me: '+fmt(lastBal.paid)+'   I sent him: '+fmt(lastBal.sent),14,40);
     var body=lastRows.map(function(r){
       var sent=r.kind==='sent';
-      return [fmtDate(r.date),sent?'I sent him':(r.kind==='auto'?'Charged to Khaled (auto)':'He paid for me'),(sent?'-':'+')+fmt(r.amount),r.note||''];
+      return [fmtDate(r.date),sent?'I sent him':(r.kind==='auto'?'Charged to Khaled (auto)':'He paid for me'),(sent?'-':'+')+fmt(r.amount),r.bal,r.note||''];
     });
-    doc.autoTable({startY:46,head:[['Date','Type','EUR','Note']],body:body,styles:{fontSize:9},headStyles:{fillColor:[13,107,92]},columnStyles:{2:{halign:'right'}}});
+    doc.autoTable({startY:46,head:[['Date','Type','EUR','Sadeq balance','Note']],body:body,styles:{fontSize:9},headStyles:{fillColor:[13,107,92]},columnStyles:{2:{halign:'right'},3:{halign:'right'}}});
     doc.save('money-between-us-'+isoToday()+'.pdf');
   });
 
